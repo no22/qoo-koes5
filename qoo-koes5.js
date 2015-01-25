@@ -3,9 +3,9 @@
  *
  * qoo-koes5.js is a thin wrapper library for knockout-es5.
  *
- * @version 1.0.0
+ * @version 1.0.1
  * @author Hiroyuki OHARA <Hiroyuki.no22@gmail.com>
- * @copyright (c) 2014 Hiroyuki OHARA
+ * @copyright (c) 2014, 2015 Hiroyuki OHARA
  * @see https://github.com/no22/qoo-koes5
  * @license MIT
  */
@@ -51,6 +51,22 @@
     subscription = observable.subscribe(makeSubscriber(self, func), null, option);
   }
 
+  function defineComputedProperty(obj, key, computed, option) {
+      var computedOptions = { owner: obj, deferEvaluation: true };
+      if (option) {
+        computedOptions = qoo.extend(computedOptions, option);
+      }
+      if (typeof computed === 'function') {
+        computedOptions.read = computed;
+      } else {
+        computedOptions.read = computed.get;
+        computedOptions.write = computed.set;
+      }
+      obj[key] = ko.computed(computedOptions);
+      ko.track(obj, [key]);
+      return obj;
+  }
+
   function track(obj) {
     var key, value, len, i, observable,
       postfix = obj.constructor.$postfix ? obj.constructor.$postfix : defaultPostfix,
@@ -73,14 +89,7 @@
         computedProperties.push(key);
       } else if (hasPostfix(key, postfix.observable)) {
         if (typeof value === "function") {
-          if (options[key] && options[key].option) {
-            obj[key] = ko.computed(value, obj, options[key].option);
-          } else {
-            obj[key] = ko.computed(value, obj);
-          }
-          if (options[key] && options[key].extend) {
-            obj[key].extend(options[key].extend);
-          }
+          computedProperties.push(key);
         } else {
           properties.push(key);
         }
@@ -89,7 +98,8 @@
     ko.track(obj, properties);
     setExtenders(obj, options, properties);
     setExtenders(obj, options, computedProperties, function(obj, key) {
-      ko.defineProperty(obj, key, obj[key]);
+      var option = options[key] ? options[key].option : null ;
+      defineComputedProperty(obj, key, obj[key], option);
     });
     setExtenders(obj, options, subscribers, function(obj, key) {
       var target = key.slice(0, -slen), observable = ko.getObservable(obj, target);
@@ -145,6 +155,7 @@
   qoo.ko.KnockoutEs5Options = KnockoutEs5Options;
   qoo.ko.KoBase = KoBase;
   qoo.ko.track = track;
+  qoo.ko.defineComputed = defineComputedProperty;
 
   // utilities
   if (!!$) {
